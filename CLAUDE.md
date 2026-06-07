@@ -114,10 +114,18 @@ fetched live from the registry (Ollama by default, `registry.ollama.ai`, configu
   store + manifest + lock; `init` scaffolds a manifest.
 - **Shared content-addressed store** at `~/.aip` (pnpm-style), shared across projects.
 
-Commands: `init`, `install`/`i`/`pull`, `ci`, `uninstall`/`remove`/`rm`, `list`/`ls`,
-`search`, `info`/`view`, `outdated`, `update`/`upgrade`, `verify`, `which`,
-`cache clean|size`, `registry show|set|set-web`, `publish` (simulated — registry is
-read-only for anonymous clients), `share` (+`--load`).
+Phase 1 is feature-complete with npm parity. Commands:
+- **Lifecycle**: `init`, `install`/`i`/`pull` (`--no-save`, `-g`), `ci`,
+  `uninstall`/`remove`/`rm` (`-g`), `update`/`upgrade`, `prune` (`--yes`), `version`.
+- **Inspect** (all `--json`): `list`/`ls`, `search`, `info`/`view`, `outdated`, `which`.
+- **Integrity/health**: `verify`, `audit`, `doctor`, `ping`.
+- **Scripts/packaging**: `run` (injects `AIP_MODEL_<NAME>` paths), `pack` (tar.gz),
+  `publish` (simulated), `share` (+`--load`).
+- **Config**: `config get|set|delete|list`, `cache clean|size`, `registry show|set|set-web`.
 
-Next: a real write/publish path (self-hostable registry); optional HuggingFace GGUF
-backend; then Phase 2 (data mesh).
+`aip.json` supports `version`, `description`, `models`, `scripts` (npm-like). Unit tests
+under `test/` run via `npm test` (node:test). MIT licensed.
+
+The only thing still simulated is `publish` — the public registry is read-only for
+anonymous clients. Next: a real write/publish path (self-hostable registry); optional
+HuggingFace GGUF backend; then Phase 2 (data mesh).

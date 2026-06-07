@@ -1,8 +1,22 @@
 import { readCache } from "../lib/store.js";
-import { info, table, formatBytes } from "../lib/ui.js";
+import { info, table, formatBytes, printJson } from "../lib/ui.js";
 
-export async function list(): Promise<void> {
+export async function list(opts: { json?: boolean } = {}): Promise<void> {
   const cache = readCache();
+
+  if (opts.json) {
+    return printJson(
+      cache.models.map((m) => ({
+        name: m.name,
+        version: m.version,
+        parameterSize: m.parameterSize ?? null,
+        sizeBytes: m.sizeBytes,
+        quantization: m.quantization,
+        sha256: m.sha256,
+      }))
+    );
+  }
+
   if (cache.models.length === 0) {
     info("No models installed. Run 'aip install <model>:<tag>' to get one.");
     return;

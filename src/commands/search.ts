@@ -1,25 +1,28 @@
 import ora from "ora";
 import chalk from "chalk";
 import { searchRegistry } from "../lib/registry.js";
-import { info, table } from "../lib/ui.js";
+import { info, table, printJson } from "../lib/ui.js";
 
-export async function search(query?: string): Promise<void> {
+export async function search(query?: string, opts: { json?: boolean } = {}): Promise<void> {
   if (!query) {
     info("Usage: aip search <query>  (e.g. 'aip search qwen', 'aip search embed')");
     return;
   }
 
-  const spinner = ora(`Searching registry for "${query}"...`).start();
+  const spinner = opts.json ? null : ora(`Searching registry for "${query}"...`).start();
   let results;
   try {
     results = await searchRegistry(query);
   } catch (err) {
-    spinner.stop();
+    spinner?.stop();
+    if (opts.json) return printJson({ query, results: [], error: (err as Error).message });
     info((err as Error).message);
     process.exitCode = 1;
     return;
   }
-  spinner.stop();
+  spinner?.stop();
+
+  if (opts.json) return printJson(results.map((r) => r.name));
 
   if (results.length === 0) {
     info(`No models match "${query}".`);

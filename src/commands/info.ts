@@ -3,15 +3,15 @@ import chalk from "chalk";
 import { resolveMeta, listTags } from "../lib/registry.js";
 import { parseModelRef } from "../lib/ui.js";
 import { isInstalled } from "../lib/store.js";
-import { fail, formatBytes } from "../lib/ui.js";
+import { fail, formatBytes, printJson } from "../lib/ui.js";
 
 const MAX_TAGS_SHOWN = 40;
 
-export async function info(ref: string): Promise<void> {
+export async function info(ref: string, opts: { json?: boolean } = {}): Promise<void> {
   const { name, version } = parseModelRef(ref);
   const tag = version ?? "latest";
 
-  const spinner = ora(`Fetching ${name}:${tag} from registry...`).start();
+  const spinner = opts.json ? null : ora(`Fetching ${name}:${tag} from registry...`).start();
   let meta;
   let tags: string[] = [];
   try {
@@ -20,12 +20,14 @@ export async function info(ref: string): Promise<void> {
       listTags(name).catch(() => [] as string[]),
     ]);
   } catch (err) {
-    spinner.stop();
+    spinner?.stop();
     fail((err as Error).message);
     process.exitCode = 1;
     return;
   }
-  spinner.stop();
+  spinner?.stop();
+
+  if (opts.json) return printJson({ ...meta, tags });
 
   const label = (s: string): string => chalk.bold(s.padEnd(14));
   console.log(chalk.cyan.bold(`\n${name}`));

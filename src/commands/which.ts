@@ -1,9 +1,9 @@
 import { existsSync } from "node:fs";
 import { readCache, paths } from "../lib/store.js";
-import { fail, parseModelRef } from "../lib/ui.js";
+import { fail, parseModelRef, printJson } from "../lib/ui.js";
 
 /** Print the absolute path to an installed model's .gguf file (for scripting). */
-export async function which(ref: string): Promise<void> {
+export async function which(ref: string, opts: { json?: boolean } = {}): Promise<void> {
   const { name, version } = parseModelRef(ref);
   const cache = readCache();
 
@@ -34,5 +34,6 @@ export async function which(ref: string): Promise<void> {
     process.exitCode = 1;
     return;
   }
+  if (opts.json) return printJson({ name: m.name, version: m.version, path: file });
   console.log(file);
 }

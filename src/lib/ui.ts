@@ -3,6 +3,17 @@ import chalk from "chalk";
 export const ok = (msg: string): void => console.log(`${chalk.green("✓")} ${msg}`);
 export const fail = (msg: string): void => console.error(`${chalk.red("✗")} ${msg}`);
 export const info = (msg: string): void => console.log(`${chalk.blue("→")} ${msg}`);
+export const warn = (msg: string): void => console.log(`${chalk.yellow("!")} ${msg}`);
+
+/** Print a value as pretty JSON (for --json output). */
+export function printJson(value: unknown): void {
+  console.log(JSON.stringify(value, null, 2));
+}
+
+/** Turn a model name into a shell-safe env var suffix, e.g. "qwen2.5" → "QWEN2_5". */
+export function envName(name: string): string {
+  return name.replace(/[^a-zA-Z0-9]+/g, "_").toUpperCase().replace(/^_+|_+$/g, "");
+}
 
 /** Human-readable size. Uses GB/MB to match the spec's display style. */
 export function formatBytes(bytes: number): string {

@@ -21,7 +21,13 @@ export function readManifest(cwd: string = process.cwd()): Manifest {
     );
   }
   const parsed = JSON.parse(readFileSync(path, "utf8")) as Partial<Manifest>;
-  return { name: parsed.name ?? basename(cwd), models: parsed.models ?? {} };
+  return {
+    name: parsed.name ?? basename(cwd),
+    version: parsed.version,
+    description: parsed.description,
+    models: parsed.models ?? {},
+    scripts: parsed.scripts,
+  };
 }
 
 export function writeManifest(manifest: Manifest, cwd: string = process.cwd()): void {
@@ -31,7 +37,7 @@ export function writeManifest(manifest: Manifest, cwd: string = process.cwd()): 
 /** Read the manifest if present, else synthesize a default one (npm-init style). */
 export function readOrInitManifest(cwd: string = process.cwd()): Manifest {
   if (manifestExists(cwd)) return readManifest(cwd);
-  return { name: basename(cwd), models: {} };
+  return { name: basename(cwd), version: "1.0.0", models: {}, scripts: {} };
 }
 
 /** Record a model dependency (name → tag) and persist. */

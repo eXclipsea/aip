@@ -8,7 +8,7 @@ import { ok, fail, info, parseModelRef } from "../lib/ui.js";
  * With a version, removes just that version; without, removes every installed
  * version of the model. Mirrors `npm uninstall`.
  */
-export async function uninstall(ref: string): Promise<void> {
+export async function uninstall(ref: string, opts: { global?: boolean } = {}): Promise<void> {
   const { name, version } = parseModelRef(ref);
   const cache = readCache();
   const targets = cache.models.filter(
@@ -26,6 +26,9 @@ export async function uninstall(ref: string): Promise<void> {
     removeCacheEntry(m.name, m.version);
     ok(`Removed ${m.name}@${m.version}`);
   }
+
+  // With --global we only touch the shared store, never the project files.
+  if (opts.global) return;
 
   // Drop from project files only when no version remains for this model.
   const remaining = readCache().models.some((m) => m.name === name);

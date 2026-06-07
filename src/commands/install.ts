@@ -126,13 +126,16 @@ export async function installFromLock(name: string, entry: LockEntry): Promise<b
 
 export interface InstallFlags {
   save?: boolean;
+  /** Install to the shared store only; never touch a project manifest. */
+  global?: boolean;
 }
 
 export async function install(ref?: string, flags: InstallFlags = {}): Promise<void> {
-  // Explicit install of one model → save to manifest by default.
+  // Explicit install of one model → save to manifest by default (unless --global).
   if (ref) {
+    const save = flags.global ? false : flags.save !== false;
     const { name, version } = parseModelRef(ref);
-    const success = await installOne(name, version, { save: flags.save !== false });
+    const success = await installOne(name, version, { save, updateLock: !flags.global });
     if (!success) process.exitCode = 1;
     return;
   }

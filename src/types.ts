@@ -18,7 +18,10 @@ export interface ModelMeta {
 
 export interface Manifest {
   name: string;
+  version?: string;
+  description?: string;
   models: Record<string, string>; // { "llama3": "3.3", "mistral": "0.3" }
+  scripts?: Record<string, string>; // { "warm": "echo $AIP_MODEL_QWEN2_5" }
 }
 
 export interface LockEntry {
