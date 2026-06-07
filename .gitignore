@@ -4,3 +4,6 @@ models/
 aip.lock
 .env
 .DS_Store
+
+# stray manifest if aip is run inside its own repo
+/aip.json

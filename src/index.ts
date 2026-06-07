@@ -28,6 +28,7 @@ import { audit } from "./commands/audit.js";
 import { ping } from "./commands/ping.js";
 import { pack } from "./commands/pack.js";
 import { version as projectVersion } from "./commands/version.js";
+import { serve, type ServeOpts } from "./commands/serve.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
@@ -171,8 +172,9 @@ program
 
 program
   .command("publish")
-  .description("Publish the current aip.json to the registry (simulated)")
-  .action(() => publish());
+  .argument("[model]", "model:tag to publish; omit to publish installed models in aip.json")
+  .description("Push installed model(s) to the configured registry (real OCI push)")
+  .action((model?: string) => publish(model));
 
 program
   .command("share")
@@ -192,11 +194,18 @@ cache
   .description("Show total disk usage of the model cache")
   .action(() => cacheSize());
 
-const registry = program.command("registry").description("View or set the model registry");
+const registry = program.command("registry").description("View, set, or host the model registry");
 registry
   .command("show", { isDefault: true })
   .description("Show the configured registry")
   .action(() => registryShow());
+registry
+  .command("serve")
+  .option("-p, --port <port>", "port to listen on", "5000")
+  .option("-d, --dir <dir>", "storage directory (default ~/.aip/registry)")
+  .option("--host <host>", "host to bind", "0.0.0.0")
+  .description("Run a self-hostable OCI registry you can publish to and install from")
+  .action((options: ServeOpts) => serve(options));
 registry
   .command("set")
   .argument("<url>", "registry base URL")

@@ -114,18 +114,27 @@ fetched live from the registry (Ollama by default, `registry.ollama.ai`, configu
   store + manifest + lock; `init` scaffolds a manifest.
 - **Shared content-addressed store** at `~/.aip` (pnpm-style), shared across projects.
 
-Phase 1 is feature-complete with npm parity. Commands:
+Phase 1 is COMPLETE with full npm parity, including a real publish path. Commands:
 - **Lifecycle**: `init`, `install`/`i`/`pull` (`--no-save`, `-g`), `ci`,
   `uninstall`/`remove`/`rm` (`-g`), `update`/`upgrade`, `prune` (`--yes`), `version`.
 - **Inspect** (all `--json`): `list`/`ls`, `search`, `info`/`view`, `outdated`, `which`.
 - **Integrity/health**: `verify`, `audit`, `doctor`, `ping`.
-- **Scripts/packaging**: `run` (injects `AIP_MODEL_<NAME>` paths), `pack` (tar.gz),
-  `publish` (simulated), `share` (+`--load`).
+- **Scripts/packaging/publish**: `run` (injects `AIP_MODEL_<NAME>` paths), `pack`
+  (tar.gz), `publish` (real OCI push), `registry serve` (self-hostable registry),
+  `share` (+`--load`).
 - **Config**: `config get|set|delete|list`, `cache clean|size`, `registry show|set|set-web`.
 
-`aip.json` supports `version`, `description`, `models`, `scripts` (npm-like). Unit tests
-under `test/` run via `npm test` (node:test). MIT licensed.
+**Self-hostable registry** (`src/lib/server.ts`, `aip registry serve`): a flat-file,
+content-addressed, OCI-compatible registry implementing manifests, blobs, blob uploads,
+`tags/list`, and `_catalog`. `publish` (`src/lib/publisher.ts`) does a real OCI push
+(config blob + model blob + manifest) to it; `install`/`info`/`search` then work against
+it unchanged. Discovery uses the OCI endpoints on self-hosted registries and falls back
+to scraping the Ollama website on the default registry. Publishing to the read-only
+public Ollama registry is refused with a helpful message.
 
-The only thing still simulated is `publish` — the public registry is read-only for
-anonymous clients. Next: a real write/publish path (self-hostable registry); optional
-HuggingFace GGUF backend; then Phase 2 (data mesh).
+`aip.json` supports `version`, `description`, `models`, `scripts` (npm-like). Tests under
+`test/` (unit + registry-server integration) run via `npm test` (node:test). MIT licensed.
+Install globally with `npm link` → `aip` works anywhere.
+
+Phase 1 is done. Possible future work: optional HuggingFace GGUF backend; auth/private
+namespaces on the registry; then Phase 2 (data mesh).

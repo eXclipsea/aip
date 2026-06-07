@@ -12,11 +12,23 @@ content digest, so you never trust a filename. No login required for public mode
 
 ## Install
 
+Run these **from the project directory**:
+
 ```bash
-npm install
-npm test                        # run the unit tests
-npx tsx src/index.ts --help     # or: npm link  → then `aip --help`
+cd AIP
+npm install        # install dependencies
+npm link           # makes `aip` a global command
 ```
+
+Now `aip` works from anywhere:
+
+```bash
+aip --help
+aip search qwen
+```
+
+(Prefer not to link? Run it in place with `npx tsx src/index.ts <args>` from the
+project directory. Run the tests with `npm test`.)
 
 ## The npm-style workflow
 
@@ -65,12 +77,13 @@ gets byte-identical models even if a moving tag like `latest` changed upstream.
 | `aip doctor [--json]` | Diagnose store, registry, cache, lockfile |
 | `aip ping [--json]` | Check the registry is reachable |
 
-### Scripts & packaging
+### Scripts, packaging & publishing
 | Command | Description |
 |---|---|
 | `aip run [script] [args...]` | Run an `aip.json` script with model paths in env |
 | `aip pack <model:tag>` | Bundle an installed model into a `.tar.gz` |
-| `aip publish` | Validate `aip.json` and (simulated) publish |
+| `aip publish [model:tag]` | **Real** OCI push of installed model(s) to your registry |
+| `aip registry serve` | Host your own self-hostable OCI registry |
 | `aip share [--load <uri>]` | Export/import an `aip://` model set |
 
 ### Configuration
@@ -102,6 +115,31 @@ as `AIP_MODEL_<NAME>` (the `.gguf` path), plus `AIP_MODELS_DIR`:
 aip run embed
 ```
 
+## Host your own registry (real publish + private registries)
+
+`aip` ships with a self-hostable, OCI-compatible registry. Run it, point a client
+at it, and `publish` becomes a real upload — the foundation for private registries.
+
+```bash
+# Terminal 1 — start the registry (flat-file, content-addressed, zero infra)
+aip registry serve --port 5000
+
+# Terminal 2 — point at it, then push a model you've installed
+aip registry set http://localhost:5000
+aip publish all-minilm:latest        # uploads config + model blobs + manifest
+
+# Anyone pointed at that registry can now pull it, fully verified
+aip install all-minilm:latest
+aip search all                       # works via the OCI _catalog endpoint
+aip info all-minilm                  # tags via the OCI tags/list endpoint
+```
+
+The server implements the OCI distribution endpoints the client already speaks
+(`/v2/.../manifests`, `/v2/.../blobs`, blob uploads, `tags/list`, `_catalog`), so
+no special client code is needed — the same `install`/`info`/`search` just work.
+Blobs are verified by digest on upload **and** on download. Publishing to the
+public Ollama registry is refused (it's read-only for you).
+
 ## Layout
 
 - **Shared store** (pnpm-style): models live in `~/.aip/models/<name>/<version>/`
@@ -129,8 +167,8 @@ src/
 ├── commands/         init, install, ci, uninstall, update, prune, version,
 │                     list, search, info, outdated, which,
 │                     verify, audit, doctor, ping,
-│                     run, pack, publish, share, cache, registry, config
-└── lib/              store, manifest, lockfile, registry, downloader,
-                      hash, license, config, semver, ui
-test/                 node:test unit tests (npm test)
+│                     run, pack, publish, serve, share, cache, registry, config
+└── lib/              store, manifest, lockfile, registry, downloader, publisher,
+                      server, hash, license, config, semver, ui
+test/                 node:test unit + registry-server integration tests (npm test)
 ```

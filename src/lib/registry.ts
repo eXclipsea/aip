@@ -140,25 +140,38 @@ export async function exists(name: string, tag: string): Promise<boolean> {
   }
 }
 
-// ---- Discovery (live, scraped from the registry website) -------------------
-
-function ensureDiscoverable(): void {
-  if (!isDefaultRegistry()) {
-    throw new Error(
-      "Discovery (search/tags) is only available on the default Ollama registry. " +
-        "You can still install any model directly with 'aip install <name>:<tag>'."
-    );
-  }
-}
+// ---- Discovery -------------------------------------------------------------
+// Default (Ollama) registry has no machine API, so we scrape its website.
+// Self-hosted aip registries implement OCI _catalog + tags/list, which we use
+// directly — so discovery works there too.
 
 export interface SearchResult {
   name: string;
   description: string;
 }
 
-/** Live search against the registry website. Returns matching model names. */
+/** Search via the OCI _catalog endpoint (self-hosted registries). */
+async function searchViaCatalog(query: string): Promise<SearchResult[]> {
+  const { registry } = getConfig();
+  const res = await fetch(`${registry.replace(/\/+$/, "")}/v2/_catalog`);
+  if (!res.ok) throw new Error(`Search failed: registry returned HTTP ${res.status}.`);
+  const body = (await res.json()) as { repositories?: string[] };
+  const q = query.toLowerCase();
+  const seen = new Set<string>();
+  const out: SearchResult[] = [];
+  for (const repo of body.repositories ?? []) {
+    const name = repo.replace(/^library\//, "");
+    if (name.toLowerCase().includes(q) && !seen.has(name)) {
+      seen.add(name);
+      out.push({ name, description: "" });
+    }
+  }
+  return out;
+}
+
+/** Live search. Scrapes the Ollama website; uses _catalog on self-hosted registries. */
 export async function searchRegistry(query: string): Promise<SearchResult[]> {
-  ensureDiscoverable();
+  if (!isDefaultRegistry()) return searchViaCatalog(query);
   const { web } = getConfig();
   const url = `${web}/search?q=${encodeURIComponent(query)}`;
   let html: string;
@@ -183,9 +196,24 @@ export async function searchRegistry(query: string): Promise<SearchResult[]> {
   return results;
 }
 
-/** Live list of available tags for a model, scraped from the registry website. */
+/** Tags via the OCI tags/list endpoint (self-hosted registries). */
+async function listTagsViaApi(name: string): Promise<string[]> {
+  const { registry } = getConfig();
+  const { namespace, model } = splitName(name);
+  const url = `${registry.replace(/\/+$/, "")}/v2/${namespace}/${model}/tags/list`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return [];
+    const body = (await res.json()) as { tags?: string[] };
+    return body.tags ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Live list of available tags. Scrapes Ollama; uses tags/list on self-hosted. */
 export async function listTags(name: string): Promise<string[]> {
-  ensureDiscoverable();
+  if (!isDefaultRegistry()) return listTagsViaApi(name);
   const { web } = getConfig();
   const { namespace, model } = splitName(name);
   const path = namespace === DEFAULT_NAMESPACE ? model : `${namespace}/${model}`;
