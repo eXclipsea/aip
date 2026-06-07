@@ -5,9 +5,9 @@ import { resolveMeta } from "../lib/registry.js";
 import { ok, info, table } from "../lib/ui.js";
 
 /**
- * Compare each installed model against the registry's current `latest` tag by
- * content digest. If the installed model's sha256 differs from latest, it's
- * out of date (or pinned to an older tag).
+ * Report installed models whose tag has moved under them — i.e. the registry's
+ * current digest for the SAME tag differs from what's on disk. Immutable tags
+ * (like "7b") are no-ops; moving tags (like "latest") surface here when rebuilt.
  */
 export async function outdated(): Promise<void> {
   const cache = readCache();
@@ -21,27 +21,26 @@ export async function outdated(): Promise<void> {
 
   for (const m of cache.models) {
     try {
-      const latest = await resolveMeta(m.name, "latest");
-      if (latest.sha256 !== m.sha256) {
+      const current = await resolveMeta(m.name, m.version);
+      if (current.sha256 !== m.sha256) {
         rows.push([
           m.name,
           m.version,
-          chalk.green("latest"),
-          `${m.sha256.slice(0, 10)}… → ${latest.sha256.slice(0, 10)}…`,
+          `${m.sha256.slice(0, 10)}… → ${chalk.green(current.sha256.slice(0, 10) + "…")}`,
         ]);
       }
     } catch {
-      // Model not resolvable (no latest tag / offline) — skip silently.
+      // Unresolvable (offline / tag removed) — skip silently.
     }
   }
 
   spinner.stop();
 
   if (rows.length === 0) {
-    ok("All installed models match the registry's latest.");
+    ok("All installed models are up to date with the registry.");
     return;
   }
 
-  console.log(table(["MODEL", "INSTALLED", "LATEST", "DIGEST CHANGE"], rows));
-  console.log(chalk.dim("\nUpdate with:  aip update <model>"));
+  console.log(table(["MODEL", "TAG", "DIGEST CHANGE"], rows));
+  console.log(chalk.dim("\nUpdate with:  aip update [model]"));
 }

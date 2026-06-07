@@ -1,98 +1,101 @@
 # aip — AI Model Package Manager
 
 `aip` is a package manager for local AI models — like npm, but for GGUF model files.
-Install, version, verify, update, and share real models from a single CLI.
+It has a project manifest (`aip.json`), a lockfile (`aip.lock`) for reproducible
+installs, a shared content-addressed store, and live, registry-driven metadata.
 
-Models are pulled from a **live, content-addressed registry** (the Ollama registry
-by default — `registry.ollama.ai`). Every install is verified against the registry's
-real SHA-256 digest, so you never trust a filename. No login required for public models.
+Nothing about the models is hardcoded. Every name, tag, size, quantization, license,
+and digest is fetched live from the registry (the Ollama registry by default —
+`registry.ollama.ai`). Every install is verified against the registry's real SHA-256
+content digest, so you never trust a filename. No login required for public models.
 
 ## Install
 
 ```bash
 npm install
+npx tsx src/index.ts --help     # or: npm link  → then `aip --help`
 ```
 
-Run via `tsx` (no build step needed):
+## The npm-style workflow
 
 ```bash
-npx tsx src/index.ts --help
-# or
-npm run dev -- --help
+aip init                        # create aip.json
+aip install qwen2.5:7b          # resolve live, download, verify, save to aip.json + lock
+aip install                     # install the whole project (honors aip.lock)
+aip ci                          # reproducible install, strictly from aip.lock
+aip uninstall qwen2.5           # remove from store + aip.json + aip.lock
 ```
 
-Optionally link it as a global `aip` command:
+`aip.json` is your manifest (which models the project wants); `aip.lock` pins the exact
+resolved **content digest** of each one. `aip ci` installs those digests directly — no
+registry resolution — so a teammate (or CI) gets byte-identical models even if a moving
+tag like `latest` has since changed upstream.
+
+## Discovery & inspection (all live)
 
 ```bash
-npm link    # then: aip --help
-```
-
-## Quickstart
-
-```bash
-aip search qwen                 # find models in the catalog
-aip info qwen2.5                # live metadata + available tags
-aip install qwen2.5:0.5b        # download + verify a real model
-aip list                        # what's installed
-aip which qwen2.5:0.5b          # absolute path to the .gguf (for scripting)
-aip verify                      # re-hash everything, confirm integrity
-aip outdated                    # what's behind the registry's latest
-aip update qwen2.5              # pull the latest digest
-aip share                       # → aip://qwen2.5@0.5b   (copy/paste to a friend)
+aip search embed                # live search across the registry
+aip info qwen2.5                # live metadata + every available tag + real license
+aip list                        # installed models (name, version, params, size, quant)
+aip which qwen2.5:7b            # absolute path to the .gguf (for scripts)
+aip verify                      # re-hash installed files, confirm integrity
+aip outdated                    # tags whose digest moved upstream
+aip update [model]              # refresh to the registry's current digest
+aip share                       # → aip://qwen2.5@7b   (copy/paste to a friend)
+aip share --load <uri>          # install a shared set
 ```
 
 ## Commands
 
-| Command | What it does |
+| Command | Description |
 |---|---|
-| `aip install <model:tag>` / `aip pull` | Install a model; no arg installs everything in `aip.json` |
-| `aip remove <model:tag>` / `aip rm` | Remove an installed model |
-| `aip list` / `aip ls` | Table of installed models (name, version, params, size, quant) |
-| `aip search [query]` | Search the model catalog |
-| `aip info <model>` | Live metadata + known tags for a model |
-| `aip outdated` | Installed models whose digest differs from registry `latest` |
-| `aip update [model]` / `aip upgrade` | Update model(s) to the registry's latest |
-| `aip verify [model:tag]` | Re-hash installed files and confirm integrity |
-| `aip which <model:tag>` | Print the absolute path to an installed model file |
-| `aip cache size` | Total disk usage of the model cache |
-| `aip cache clean` | Delete all models, report space freed |
-| `aip registry [show\|set <url>]` | View or change the registry |
-| `aip publish` | Publish the current `aip.json` to the registry (simulated) |
-| `aip share` | Print a shareable `aip://...` URI of installed models |
-| `aip share --load <uri>` | Install every model encoded in an `aip://` URI |
+| `aip init` | Create an empty `aip.json` |
+| `aip install [model:tag]` / `i` / `pull` | Install + save to `aip.json`; no arg installs the project |
+| `aip install --no-save <model>` | Install without modifying `aip.json` |
+| `aip ci` | Reproducible install strictly from `aip.lock` |
+| `aip uninstall <model>` / `remove` / `rm` | Remove from store + `aip.json` + `aip.lock` |
+| `aip list` / `ls` | List installed models |
+| `aip search <query>` | Live registry search |
+| `aip info <model>` / `view` | Live metadata + available tags |
+| `aip outdated` | Installed tags whose digest changed upstream |
+| `aip update [model]` / `upgrade` | Refresh to the registry's current digest |
+| `aip verify [model:tag]` | Re-hash installed files, confirm integrity |
+| `aip which <model:tag>` | Print absolute path to a model file |
+| `aip cache size` / `clean` | Disk usage / wipe the store |
+| `aip registry [show\|set <url>\|set-web <url>]` | View or change the registry |
+| `aip publish` | Validate `aip.json` and (simulated) publish |
+| `aip share [--load <uri>]` | Export/import an `aip://` set |
 
-## Models
-
-Any model on the registry works with `aip install <name>:<tag>` — even if it's not in
-the curated catalog. The catalog (used by `search`/`info`) covers the popular families:
-
-`llama3.3` · `llama3.2` · `llama3.1` · `qwen2.5` · `qwen2.5-coder` · `mistral` ·
-`mixtral` · `gemma3` · `gemma2` · `phi4` · `phi3` · `deepseek-r1` · `deepseek-v3` ·
-`codellama` · `llava` · `nomic-embed-text` · `all-minilm` · `smollm2` · `tinyllama`
-
-Reference syntax is flexible: `qwen2.5:7b` (Ollama-style) or `qwen2.5@7b` (npm-style),
-with an optional `namespace/` prefix.
+Any model on the registry works with `aip install <name>:<tag>` — reference syntax is
+flexible: `qwen2.5:7b` (Ollama-style) or `qwen2.5@7b` (npm-style), with an optional
+`namespace/` prefix.
 
 ## Layout
 
-- Models installed to `~/.aip/models/<name>/<version>/` (`model.gguf` + `meta.json`)
-- Cache index at `~/.aip/cache.json`, config at `~/.aip/config.json`
-- Per-project manifest `aip.json` and lockfile `aip.lock` in the working directory
-- Override the store root with `AIP_HOME=/path`, the registry with `AIP_REGISTRY=<url>`
+- **Shared store** (like pnpm): models live in `~/.aip/models/<name>/<version>/`
+  (`model.gguf` + `meta.json`), with an index at `~/.aip/cache.json` and config at
+  `~/.aip/config.json`.
+- **Per-project**: `aip.json` (manifest) and `aip.lock` (lockfile) in the working dir.
+- Override the store with `AIP_HOME=<path>`, the registry with `AIP_REGISTRY=<url>`,
+  and discovery with `AIP_REGISTRY_WEB=<url>`.
+
+## How "live" works
+
+`aip` reads a model's manifest from the registry, takes the GGUF model layer's content
+digest + size, the config blob's quantization/parameters/family, and the license layer's
+real text (named via `lib/license.ts`); publisher is the namespace. It then streams the
+real blob to disk and re-hashes it. The recorded `sha256` **is** the registry's content
+address — verification is genuine. Search and tag listings are scraped live from the
+registry website, so no model list is baked into the code.
 
 ## Project structure
 
 ```
 src/
-├── index.ts          CLI entry point (Commander)
+├── index.ts          CLI entry (Commander)
 ├── types.ts          shared types
-├── commands/         one file per command
-└── lib/              store, manifest, lockfile, registry, downloader, catalog, config, hash, ui
+├── commands/         init, install, ci, uninstall, list, search, info,
+│                     outdated, update, verify, which, cache, registry, publish, share
+└── lib/              store, manifest, lockfile, registry, downloader,
+                      hash, license, config, ui
 ```
-
-## How "real" works
-
-`aip` resolves a model's manifest from the registry, reads the GGUF model layer's
-content digest and size, fetches the config blob for real quantization/parameter data,
-then streams the blob to disk and re-hashes it. The recorded `sha256` **is** the
-registry's content address — verification is genuine, not simulated.

@@ -97,17 +97,27 @@ The package manager is the wedge — open source it, build the ecosystem, moneti
 through enterprise private registries (like npm → GitHub Packages).
 
 ## Current Status
-Phase 1 — `aip` CLI works end-to-end against a **real, live registry** (the Ollama
-registry, `registry.ollama.ai`, configurable via `aip registry set` / `AIP_REGISTRY`).
-It resolves manifests, reads the GGUF model layer's content digest + size, fetches the
-config blob for real quantization/parameter data, streams the real blob to disk with a
-progress bar, and verifies the downloaded file against the registry's sha256 digest.
+Phase 1 — `aip` is a real, npm-grade package manager. **Nothing about the models is
+hardcoded**: names, tags, sizes, quantization, parameters, licenses, and digests are all
+fetched live from the registry (Ollama by default, `registry.ollama.ai`, configurable).
 
-Implemented commands: `install`/`pull`, `remove`/`rm`, `list`/`ls`, `search`, `info`,
-`outdated`, `update`/`upgrade`, `verify`, `which`, `cache clean|size`, `registry show|set`,
-`publish` (still simulated — no write API yet), `share` (+`--load`).
+- **Live registry** (`src/lib/registry.ts`): resolves manifests; takes the GGUF model
+  layer's digest+size, the config blob's quant/params/family, the license layer's real
+  text (named via `src/lib/license.ts`); publisher = namespace. Search and tag listing
+  are scraped live from the registry website. No model list baked into code.
+- **Real downloads** (`src/lib/downloader.ts`): streams the blob to disk with a progress
+  bar; every install is verified against the registry's sha256 content digest.
+- **npm-style project workflow**: `aip.json` manifest + `aip.lock` lockfile (pins the
+  resolved content digest). `install` saves by default (`--no-save` to skip); no-arg
+  `install` installs the project honoring the lock; `ci` does a strict reproducible
+  install from the lock by digest (refuses if lock is out of sync); `uninstall` cleans
+  store + manifest + lock; `init` scaffolds a manifest.
+- **Shared content-addressed store** at `~/.aip` (pnpm-style), shared across projects.
 
-A curated catalog (`src/lib/catalog.ts`) powers `search`/`info`/version-listing, but
-installs work for ANY model:tag on the registry, not just catalogued ones.
+Commands: `init`, `install`/`i`/`pull`, `ci`, `uninstall`/`remove`/`rm`, `list`/`ls`,
+`search`, `info`/`view`, `outdated`, `update`/`upgrade`, `verify`, `which`,
+`cache clean|size`, `registry show|set|set-web`, `publish` (simulated — registry is
+read-only for anonymous clients), `share` (+`--load`).
 
-Next: a real write/publish API; optional HuggingFace GGUF backend; Phase 2 (data mesh).
+Next: a real write/publish path (self-hostable registry); optional HuggingFace GGUF
+backend; then Phase 2 (data mesh).

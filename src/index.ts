@@ -5,8 +5,10 @@ import { dirname, join } from "node:path";
 import { Command } from "commander";
 import chalk from "chalk";
 
-import { install } from "./commands/install.js";
-import { remove } from "./commands/remove.js";
+import { install, type InstallFlags } from "./commands/install.js";
+import { ci } from "./commands/ci.js";
+import { init } from "./commands/init.js";
+import { uninstall } from "./commands/uninstall.js";
 import { list } from "./commands/list.js";
 import { info } from "./commands/info.js";
 import { outdated } from "./commands/outdated.js";
@@ -17,7 +19,7 @@ import { search } from "./commands/search.js";
 import { verify } from "./commands/verify.js";
 import { which } from "./commands/which.js";
 import { update } from "./commands/update.js";
-import { registryShow, registrySet } from "./commands/registry.js";
+import { registryShow, registrySet, registrySetWeb } from "./commands/registry.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(
@@ -32,18 +34,31 @@ program
   .version(pkg.version, "-v, --version", "output the current version");
 
 program
-  .command("install")
-  .alias("pull")
-  .argument("[model]", "model:tag to install; omit to install all from aip.json")
-  .description("Install a model from the registry (or all models in aip.json)")
-  .action((model?: string) => install(model));
+  .command("init")
+  .description("Create an empty aip.json in the current directory")
+  .action(() => init());
 
 program
-  .command("remove")
+  .command("install")
+  .alias("i")
+  .alias("pull")
+  .argument("[model]", "model:tag to install; omit to install all from aip.json")
+  .option("--no-save", "do not add the model to aip.json")
+  .description("Install a model and save it to aip.json (or install the whole project)")
+  .action((model: string | undefined, options: InstallFlags) => install(model, options));
+
+program
+  .command("ci")
+  .description("Reproducible install strictly from aip.lock (like npm ci)")
+  .action(() => ci());
+
+program
+  .command("uninstall")
+  .alias("remove")
   .alias("rm")
   .argument("<model>", "model:tag to remove")
-  .description("Remove an installed model")
-  .action((model: string) => remove(model));
+  .description("Remove a model and drop it from aip.json + aip.lock")
+  .action((model: string) => uninstall(model));
 
 program
   .command("list")
@@ -53,26 +68,27 @@ program
 
 program
   .command("search")
-  .argument("[query]", "term to match against model name, publisher, or description")
-  .description("Search the model catalog")
+  .argument("[query]", "term to search the registry for")
+  .description("Search the registry for models (live)")
   .action((query?: string) => search(query));
 
 program
   .command("info")
+  .alias("view")
   .argument("<model>", "model name (optionally model:tag)")
-  .description("Show live metadata and known tags for a model")
+  .description("Show live metadata and available tags for a model")
   .action((model: string) => info(model));
 
 program
   .command("outdated")
-  .description("Show installed models whose digest differs from registry latest")
+  .description("Show installed models whose tag has a newer digest in the registry")
   .action(() => outdated());
 
 program
   .command("update")
   .alias("upgrade")
   .argument("[model]", "model to update; omit to update all installed models")
-  .description("Update installed model(s) to the registry's latest")
+  .description("Refresh installed model(s) to the registry's current digest")
   .action((model?: string) => update(model));
 
 program
@@ -105,8 +121,13 @@ registry
 registry
   .command("set")
   .argument("<url>", "registry base URL")
-  .description("Set the registry URL")
+  .description("Set the OCI registry URL")
   .action((url: string) => registrySet(url));
+registry
+  .command("set-web")
+  .argument("<url>", "discovery website base URL")
+  .description("Set the website base used for search/tags")
+  .action((url: string) => registrySetWeb(url));
 
 program
   .command("publish")

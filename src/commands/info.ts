@@ -1,20 +1,24 @@
 import ora from "ora";
 import chalk from "chalk";
-import { getCatalogModel } from "../lib/catalog.js";
-import { resolveMeta, defaultTag, listTags } from "../lib/registry.js";
+import { resolveMeta, listTags } from "../lib/registry.js";
 import { parseModelRef } from "../lib/ui.js";
 import { isInstalled } from "../lib/store.js";
 import { fail, formatBytes } from "../lib/ui.js";
 
+const MAX_TAGS_SHOWN = 40;
+
 export async function info(ref: string): Promise<void> {
   const { name, version } = parseModelRef(ref);
-  const catalog = getCatalogModel(name);
-  const tag = version ?? defaultTag(name);
+  const tag = version ?? "latest";
 
   const spinner = ora(`Fetching ${name}:${tag} from registry...`).start();
   let meta;
+  let tags: string[] = [];
   try {
-    meta = await resolveMeta(name, tag);
+    [meta, tags] = await Promise.all([
+      resolveMeta(name, tag),
+      listTags(name).catch(() => [] as string[]),
+    ]);
   } catch (err) {
     spinner.stop();
     fail((err as Error).message);
@@ -25,25 +29,26 @@ export async function info(ref: string): Promise<void> {
 
   const label = (s: string): string => chalk.bold(s.padEnd(14));
   console.log(chalk.cyan.bold(`\n${name}`));
-  if (catalog) console.log(chalk.dim(catalog.description));
   console.log();
+  console.log(`${label("Resolved tag")} ${meta.version}`);
   console.log(`${label("Publisher")} ${meta.publisher}`);
   console.log(`${label("License")} ${meta.license}`);
   console.log(`${label("Family")} ${meta.family ?? "n/a"}`);
   console.log(`${label("Format")} ${meta.format ?? "n/a"}`);
-  console.log(`${label("Default tag")} ${tag}`);
   console.log(`${label("Parameters")} ${meta.parameterSize ?? "n/a"}`);
   console.log(`${label("Quantization")} ${meta.quantization}`);
   console.log(`${label("Size")} ${formatBytes(meta.sizeBytes)}`);
   console.log(`${label("Digest")} sha256:${meta.sha256.slice(0, 16)}…`);
 
-  const tags = listTags(name);
   if (tags.length > 0) {
-    console.log(chalk.bold("\nKnown tags:"));
-    for (const t of tags) {
+    const shown = tags.slice(0, MAX_TAGS_SHOWN);
+    console.log(chalk.bold(`\nTags (${tags.length} available):`));
+    for (const t of shown) {
       const installed = isInstalled(name, t) ? chalk.green("  [installed]") : "";
-      const isDefault = t === defaultTag(name) ? chalk.yellow(" (default)") : "";
-      console.log(`  ${name}:${t}${isDefault}${installed}`);
+      console.log(`  ${name}:${t}${installed}`);
+    }
+    if (tags.length > shown.length) {
+      console.log(chalk.dim(`  …and ${tags.length - shown.length} more`));
     }
   }
   console.log(chalk.dim(`\nInstall with:  aip install ${name}:${tag}`));
